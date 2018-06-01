@@ -51,6 +51,7 @@ async function getCommitsAfterTag(tag) {
   return log.all.reverse();
 }
 
+// Returns true if commit should NOT be cherry-picked.
 function shouldSkipCommit(logLine) {
   const parsedCommit = parser.sync(logLine.message, parserOpts);
   return parsedCommit.type === 'feat' || // feature commit
@@ -58,6 +59,8 @@ function shouldSkipCommit(logLine) {
     (parsedCommit.type === 'chore' && parsedCommit.subject === 'Publish'); // Publish (version-rev) commit
 }
 
+// Checks out the given tag and attempts to cherry-pick each commit in the list against it.
+// If a conflict is encountered, that cherry-pick is aborted and processing moves on to the next commit.
 async function attemptCherryPicks(tag, list) {
   const results = {
     successful: [],
@@ -90,9 +93,16 @@ async function attemptCherryPicks(tag, list) {
   return results;
 }
 
+// Given a string containing a command and arguments, runs the command and returns true if it exits successfully.
+// The command's I/O is piped through to the parent process intentionally to be visible in the console.
 function checkSpawnSuccess(command) {
   const parts = command.split(' ');
   return spawnSync(parts[0], parts.slice(1), {stdio: 'inherit'}).status === 0;
+}
+
+// Given a simple-git log line object, outputs the commit's hash and subject on a single line.
+function logSingleLineCommit(logLine) {
+  console.log(`- ${logLine.hash.slice(0, 8)} ${logLine.message.split('\n', 1)[0]}`);
 }
 
 async function run() {
@@ -110,26 +120,33 @@ async function run() {
   console.log('Running unit tests...')
   const testsSucceeded = checkSpawnSuccess('npm run test:unit');
 
+  console.log('');
   console.log('Finished!');
-  console.log(`${results.successful.length} cherry-picked,`);
-  console.log(`${results.conflicted.length} could not be cherry-picked without conflicts,`);
-  console.log(`${results.skipped.length} intentionally skipped`);
+  console.log(`Commits intentionally skipped: ............ ${results.skipped.length}`);
+  console.log(`Commits cherry-picked: .................... ${results.successful.length}`);
+  console.log(`Commits not cherry-picked due to conflicts: ${results.conflicted.length}`);
 
   if (results.conflicted.length) {
     console.log('');
+    console.log('Commits skipped:');
+    results.skipped.forEach(logSingleLineCommit);
+  }
+
+  if (results.skipped.length) {
+    console.log('');
     console.log('Commits with conflicts:');
-    for (logLine of results.conflicted) {
-      console.log(`- ${logLine.hash.slice(0, 8)} ${logLine.message.split('\n', 1)[0]}`);
-    }
-    console.log('Please examine these and cherry-pick manually if appropriate. (git cherry-pick -x <hash>)')
+    results.conflicted.forEach(logSingleLineCommit);
+    console.log('Please examine these and cherry-pick manually if appropriate.');
+    console.log('(git cherry-pick -x <hash>, then resolve conflicts, then git cherry-pick --continue)');
   }
 
   console.log('');
-  console.log(`Build status: ${buildSucceeded ? 'Success!' : 'FAIL'}`);
-  console.log(`Unit tests status: ${testsSucceeded ? 'Success!' : 'FAIL'}`);
+  console.log(`Build status: ${buildSucceeded ? 'Success!' : 'FAIL (see above for errors)'}`);
+  console.log(`Unit tests status: ${testsSucceeded ? 'Success!' : 'FAIL (see above for failures)'}`);
 
   console.log('');
   console.log('Please review `git log` to make sure there are no commits dependent on omitted feature commits.');
+  console.log('You are now on a detached HEAD. If you want to create a local branch, use git checkout -b <branchname>.')
 }
 
 run();
