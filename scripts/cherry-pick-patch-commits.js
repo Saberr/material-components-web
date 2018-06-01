@@ -47,7 +47,22 @@ async function getCommitsAfterTag(tag) {
   if (!args.includes('--no-fetch')) {
     await simpleGit.fetch();
   }
-  const log = await simpleGit.log({from: tag, to: 'origin/master'});
+  const log = await simpleGit.log({
+    from: tag,
+    to: 'origin/master',
+    // simple-git spits out the subject + tag/branch (%s%d) in message, which adds noise and is not useful for finding
+    // BREAKING CHANGEs (which are in body, %b).
+    // The rest of this is identical to simple-git's defaults (which are unfortunately not exposed for reuse).
+    format: {
+      hash: '%H',
+      date: '%ai',
+      message: '%s\n\n%b',
+      author_name: '%aN',
+      author_email: '%ae'
+    },
+    // Use a splitter that is very unlikely to be included in commit descriptions
+    splitter: ';;;'
+  });
   return log.all.reverse();
 }
 
@@ -55,7 +70,7 @@ async function getCommitsAfterTag(tag) {
 function shouldSkipCommit(logLine) {
   const parsedCommit = parser.sync(logLine.message, parserOpts);
   return parsedCommit.type === 'feat' || // feature commit
-    parsedCommit.notes.find((note) => title === 'BREAKING CHANGE') || // breaking change commit
+    parsedCommit.notes.find((note) => note.title === 'BREAKING CHANGE') || // breaking change commit
     (parsedCommit.type === 'chore' && parsedCommit.subject === 'Publish'); // Publish (version-rev) commit
 }
 
@@ -126,13 +141,13 @@ async function run() {
   console.log(`Commits cherry-picked: .................... ${results.successful.length}`);
   console.log(`Commits not cherry-picked due to conflicts: ${results.conflicted.length}`);
 
-  if (results.conflicted.length) {
+  if (results.skipped.length) {
     console.log('');
     console.log('Commits skipped:');
     results.skipped.forEach(logSingleLineCommit);
   }
 
-  if (results.skipped.length) {
+  if (results.conflicted.length) {
     console.log('');
     console.log('Commits with conflicts:');
     results.conflicted.forEach(logSingleLineCommit);
