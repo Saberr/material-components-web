@@ -51,6 +51,13 @@ async function getCommitsAfterTag(tag) {
   return log.all.reverse();
 }
 
+function shouldSkipCommit(logLine) {
+  const parsedCommit = parser.sync(logLine.message, parserOpts);
+  return parsedCommit.type === 'feat' || // feature commit
+    parsedCommit.notes.find((note) => title === 'BREAKING CHANGE') || // breaking change commit
+    (parsedCommit.type === 'chore' && parsedCommit.subject === 'Publish'); // Publish (version-rev) commit
+}
+
 async function attemptCherryPicks(tag, list) {
   const results = {
     successful: [],
@@ -62,8 +69,7 @@ async function attemptCherryPicks(tag, list) {
   await simpleGit.checkout([tag]);
 
   for (let logLine of list) {
-    const parsedCommit = parser.sync(logLine.message, parserOpts);
-    if (parsedCommit.type === 'feat' || parsedCommit.notes.find((note) => title === 'BREAKING CHANGE')) {
+    if (shouldSkipCommit(logLine)) {
       results.skipped.push(logLine);
       continue;
     }
@@ -96,10 +102,18 @@ async function run() {
 
   const results = await attemptCherryPicks(tag, list);
 
-  console.log('Finished cherry-picking commits!');
+  console.log('');
+  console.log('Test-running build...')
+  const buildSucceeded = checkSpawnSuccess('npm run build');
+
+  console.log('');
+  console.log('Running unit tests...')
+  const testsSucceeded = checkSpawnSuccess('npm run test:unit');
+
+  console.log('Finished!');
   console.log(`${results.successful.length} cherry-picked,`);
   console.log(`${results.conflicted.length} could not be cherry-picked without conflicts,`);
-  console.log(`${results.skipped.length} skipped due to features or breaking changes`);
+  console.log(`${results.skipped.length} intentionally skipped`);
 
   if (results.conflicted.length) {
     console.log('');
@@ -107,24 +121,12 @@ async function run() {
     for (logLine of results.conflicted) {
       console.log(`- ${logLine.hash.slice(0, 8)} ${logLine.message.split('\n', 1)[0]}`);
     }
-    console.log('Please examine these commits, determine if they should be cherry-picked, and do so manually.')
+    console.log('Please examine these and cherry-pick manually if appropriate. (git cherry-pick -x <hash>)')
   }
 
   console.log('');
-  console.log('Test-running build...')
-  if (checkSpawnSuccess('npm run build')) {
-    console.log('Build succeeded!');
-  } else {
-    console.error('Build FAILED');
-  }
-
-  console.log('');
-  console.log('Running unit tests...')
-  if (checkSpawnSuccess('npm run test:unit')) {
-    console.log('Unit tests succeeded!');
-  } else {
-    console.error('Unit tests FAILED');
-  }
+  console.log(`Build status: ${buildSucceeded ? 'Success!' : 'FAIL'}`);
+  console.log(`Unit tests status: ${testsSucceeded ? 'Success!' : 'FAIL'}`);
 
   console.log('');
   console.log('Please review `git log` to make sure there are no commits dependent on omitted feature commits.');
