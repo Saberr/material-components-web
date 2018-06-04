@@ -50,15 +50,12 @@ async function getCommitsAfterTag(tag) {
   const log = await simpleGit.log({
     from: tag,
     to: 'origin/master',
-    // simple-git spits out the subject + tag/branch (%s%d) in message, which adds noise and is not useful for finding
-    // BREAKING CHANGEs (which are in body, %b).
-    // The rest of this is identical to simple-git's defaults (which are unfortunately not exposed for reuse).
+    // simple-git defaults to only including subject + tag/branch (%s%d) in message, which adds noise and is not useful
+    // for finding BREAKING CHANGEs (which are in body, %b).
     format: {
-      hash: '%H',
-      date: '%ai',
-      message: '%s\n\n%b',
-      author_name: '%aN',
-      author_email: '%ae'
+      hash: '%H', // Contains full hash only, for cherry-picking
+      message: '%s\n\n%b', // Contains subject + body for passing to conventional-commits-parser
+      oneline: '%h %s' // Contains abbreviated hash + subject for summary lists
     },
     // Use a splitter that is very unlikely to be included in commit descriptions
     splitter: ';;;'
@@ -117,7 +114,7 @@ function checkSpawnSuccess(command) {
 
 // Given a simple-git log line object, outputs the commit's hash and subject on a single line.
 function logSingleLineCommit(logLine) {
-  console.log(`- ${logLine.hash.slice(0, 8)} ${logLine.message.split('\n', 1)[0]}`);
+  console.log(`- ${logLine.oneline}`);
 }
 
 async function run() {
