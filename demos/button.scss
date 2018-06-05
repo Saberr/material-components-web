@@ -22,6 +22,12 @@
 @import "../packages/mdc-form-field/mdc-form-field";
 @import "../packages/mdc-ripple/mixins";
 
+.mdc-button {
+  text-transform: none !important;
+  @include mdc-button-corner-radius(18px);
+  @include mdc-button-ink-color(on-primary);
+}
+
 .mdc-button.secondary-text-button {
   @include mdc-button-ink-color($mdc-theme-secondary);
   @include mdc-states(secondary);

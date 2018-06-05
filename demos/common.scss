@@ -21,8 +21,12 @@
 @import "../packages/mdc-theme/color-palette";
 
 // Base style
-$mdc-theme-primary: #6200ee !default; // baseline purple, 500 tone
-$mdc-theme-secondary: #018786 !default; // baseline teal, 600 tone
+$mdc-theme-primary: #17d5d1 !default; // baseline purple, 500 tone
+$mdc-theme-on-primary: #0f1c70 !default;
+$mdc-theme-secondary: #e1fffc !default; // baseline teal, 600 tone
+$mdc-theme-on-secondary: #0f1c70 !default;
+$mdc-typography-font-family: Circular Pro, sans-serif !default;
+$mdc-theme-on-surface: #0f1c70 !default;
 
 // All demo pages have a top toolbar, and most of them use theme variables.
 // Import these *after* setting theme colors to override defaults in mdc-theme.

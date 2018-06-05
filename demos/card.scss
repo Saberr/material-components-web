@@ -23,6 +23,12 @@
 @import "../packages/mdc-list/mdc-list";
 @import "../packages/mdc-ripple/mdc-ripple";
 
+.mdc-button {
+  text-transform: none !important;
+  @include mdc-button-corner-radius(18px);
+  @include mdc-button-ink-color(on-primary);
+}
+
 .hero {
   height: auto;
   padding: 24px;
